@@ -134,11 +134,28 @@ class GoApp:
         r = self.cfg.stone_radius + 6
         self.canvas.create_oval(x - r, y - r, x + r, y + r, outline="red", width=2)
 
+    # ---------- status / controls ----------
     def update_status(self):
         ai_txt = f" | AI: {'ON' if self.ai_enabled else 'OFF'} ({self.ai_color.value})"
+
         if self.state.is_over:
+            sb = self.state.score()
+            if sb.score_black > sb.score_white:
+                winner = "B"
+            elif sb.score_white > sb.score_black:
+                winner = "W"
+            else:
+                winner = "DRAW"
+
             self.status.config(
-                text=f"GAME OVER | Captures B:{self.state.captures_black} W:{self.state.captures_white}{ai_txt}"
+                text=(
+                    f"GAME OVER | "
+                    f"Territory B:{sb.territory_black} W:{sb.territory_white} | "
+                    f"Captures B:{sb.captures_black} W:{sb.captures_white} | "
+                    f"Score B:{sb.score_black} W:{sb.score_white} | "
+                    f"Winner: {winner}"
+                    f"{ai_txt}"
+                )
             )
         else:
             self.status.config(
