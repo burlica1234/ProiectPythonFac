@@ -6,6 +6,9 @@ from go_game.engine.game_state import GameState
 from go_game.engine.types import Point, Color
 from go_game.engine.errors import GoError
 
+# Phase 4
+from go_game.engine.ai import RandomAI
+
 
 @dataclass
 class RenderConfig:
@@ -18,11 +21,17 @@ class RenderConfig:
 class GoApp:
     def __init__(self, root: tk.Tk, size: int = 9):
         self.root = root
-        self.root.title("Go - Phase 2")
+        self.root.title("Go - Phase 4")
 
         self.size = size
         self.state = GameState.new(size=size)
         self.cfg = RenderConfig()
+
+        # Phase 4: AI settings
+        self.ai_enabled = True
+        self.ai_color = Color.WHITE  # AI plays White by default
+        self.ai = RandomAI()
+        self.ai_busy = False
 
         # Layout: controls (top), canvas (middle), status (bottom)
         self.controls = tk.Frame(root)
@@ -33,6 +42,11 @@ class GoApp:
 
         self.new_btn = tk.Button(self.controls, text="New Game", command=self.on_new_game)
         self.new_btn.pack(side="left", padx=(8, 0))
+
+        # Phase 4: AI toggle button
+        self.ai_btn = tk.Button(self.controls, text="AI: ON", command=self.toggle_ai)
+        self.ai_btn.pack(side="left", padx=(8, 0))
+
         w = self.cfg.margin * 2 + self.cfg.cell * (size - 1)
         h = self.cfg.margin * 2 + self.cfg.cell * (size - 1)
 
@@ -45,6 +59,7 @@ class GoApp:
         self.canvas.bind("<Button-1>", self.on_click)
 
         self.redraw()
+        self.maybe_ai_turn()  # if AI is set to start (not typical), it will play
 
     # ---------- coordinate mapping ----------
     def p_to_xy(self, p: Point) -> tuple[int, int]:
@@ -120,6 +135,7 @@ class GoApp:
         self.canvas.create_oval(x - r, y - r, x + r, y + r, outline="red", width=2)
 
     def update_status(self):
+        ai_txt = f" | AI: {'ON' if self.ai_enabled else 'OFF'} ({self.ai_color.value})"
         if self.state.is_over:
             self.status.config(
                 text=f"GAME OVER | Captures B:{self.state.captures_black} W:{self.state.captures_white}{ai_txt}"
@@ -131,20 +147,75 @@ class GoApp:
                      f"Passes: {self.state.consecutive_passes}{ai_txt}"
             )
 
+    def update_controls(self):
+        self.pass_btn.config(state=("disabled" if self.state.is_over else "normal"))
+        self.new_btn.config(state=("disabled" if self.ai_busy else "normal"))
+        self.ai_btn.config(state=("disabled" if self.ai_busy else "normal"))
+
     # ---------- actions ----------
+    def toggle_ai(self):
+        self.ai_enabled = not self.ai_enabled
+        self.ai_btn.config(text=f"AI: {'ON' if self.ai_enabled else 'OFF'}")
+        self.redraw()
+        self.maybe_ai_turn()
+
     def on_new_game(self):
         self.state = GameState.new(size=self.size)
         self.redraw()
+        self.maybe_ai_turn()
 
     def on_pass(self):
         if self.state.is_over:
             return
+        if self.ai_busy:
+            return
+        # prevent passing on AI's turn if AI enabled
+        if self.ai_enabled and self.state.next_player is self.ai_color:
+            return
+
         self.state = self.state.pass_turn()
         self.redraw()
+        self.maybe_ai_turn()
+
+    # ---------- AI turn loop ----------
+    def maybe_ai_turn(self):
+        if self.state.is_over:
+            return
+        if not self.ai_enabled:
+            return
+        if self.state.next_player is not self.ai_color:
+            return
+        if self.ai_busy:
+            return
+
+        self.ai_busy = True
+        self.status.config(text="AI is thinking...")
+        self.root.after(150, self.do_ai_turn)
+
+    def do_ai_turn(self):
+        try:
+            if self.state.is_over or not self.ai_enabled or self.state.next_player is not self.ai_color:
+                return
+
+            move = self.ai.pick_move(self.state)
+            if move is None:
+                self.state = self.state.pass_turn()
+            else:
+                self.state = self.state.play(move)
+
+        finally:
+            self.ai_busy = False
+            self.redraw()
+            # If it's still AI's turn (rare), continue:
+            self.maybe_ai_turn()
 
     # ---------- events ----------
     def on_click(self, event):
         if self.state.is_over:
+            return
+        if self.ai_busy:
+            return
+        if self.ai_enabled and self.state.next_player is self.ai_color:
             return
 
         p = self.xy_to_point(event.x, event.y)
@@ -159,6 +230,7 @@ class GoApp:
             return
 
         self.redraw()
+        self.maybe_ai_turn()
 
 
 def run_gui(size: int = 9):
