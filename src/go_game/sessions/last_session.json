@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "board_size": 9,
+  "ai_enabled": false,
+  "ai_color": "W",
+  "history": []
+}
