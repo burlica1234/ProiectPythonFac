@@ -11,6 +11,14 @@ from .scoring import evaluate_territory, ScoreBreakdown
 
 @dataclass(frozen=True, slots=True)
 class MoveRecord:
+    """
+      Represents a single move in the game history.
+
+      Attributes:
+          color: Player color performing the action.
+          point: Board point for the move, or None for a pass.
+          captured: Number of stones captured.
+    """
     color: Color
     point: Optional[Point]          # None = PASS
     captured: int
@@ -18,6 +26,12 @@ class MoveRecord:
 
 @dataclass(frozen=True, slots=True)
 class GameState:
+    """
+      Represents an immutable snapshot of a Go game.
+
+      Stores board state, current player, captures, pass counters,
+      ko restrictions, and move history.
+    """
     board: Board
     next_player: Color
     captures_black: int
@@ -32,6 +46,9 @@ class GameState:
 
     @staticmethod
     def new(size: int = 19, next_player: Color = Color.BLACK) -> "GameState":
+        """
+           Create a new game state with an empty board.
+        """
         return GameState(
             board=Board.empty(size),
             next_player=next_player,
@@ -45,6 +62,10 @@ class GameState:
         )
 
     def play(self, p: Point) -> "GameState":
+        """
+            Play a stone at the given board point.
+            Applies legality checks and updates captures and history.
+        """
         if self.is_over:
             return self
 
@@ -102,6 +123,7 @@ class GameState:
         )
 
     def legal_moves(self) -> list[Point]:
+        """Compute all legal moves for the next player."""
         if self.is_over:
             return []
         size = self.board.size
@@ -121,7 +143,6 @@ class GameState:
                     pass
         return moves
 
-    # -------- Phase 5: scoring & stats --------
     def score(self) -> ScoreBreakdown:
         """
         Territory + captures (simple Japanese scoring).

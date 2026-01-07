@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
@@ -49,18 +48,13 @@ def dict_to_game(data: dict[str, Any]) -> Tuple[GameState, bool, Color, int]:
     ai_enabled = bool(data.get("ai_enabled", True))
     ai_color = Color(data.get("ai_color", "W"))
 
-    # Rebuild by replaying moves (engine recomputes captures/ko/is_over)
     state = GameState.new(size=size)
 
     hist = data.get("history", [])
     for m in hist:
         color = Color(m["color"])
         point = _obj_to_point(m.get("point"))
-        # Ensure correct turn: if file says a different color than state expects,
-        # we can still replay by forcing passes until it matches (simple + safe).
-        # But in normal saves, it will match.
         if state.next_player != color:
-            # Attempt to realign in a safe way:
             state = state.pass_turn()
 
         if point is None:
@@ -72,6 +66,7 @@ def dict_to_game(data: dict[str, Any]) -> Tuple[GameState, bool, Color, int]:
 
 
 def save_session(path: str | Path, state: GameState, *, ai_enabled: bool, ai_color: Color, board_size: int) -> None:
+    """Save a game session to disk"""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     data = game_to_dict(state, ai_enabled=ai_enabled, ai_color=ai_color, board_size=board_size)
@@ -79,6 +74,7 @@ def save_session(path: str | Path, state: GameState, *, ai_enabled: bool, ai_col
 
 
 def load_session(path: str | Path) -> Tuple[GameState, bool, Color, int]:
+    """Load a game session from disk"""
     path = Path(path)
     data = json.loads(path.read_text(encoding="utf-8"))
     return dict_to_game(data)

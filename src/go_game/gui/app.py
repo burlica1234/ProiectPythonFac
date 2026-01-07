@@ -22,6 +22,9 @@ class RenderConfig:
 
 
 class GoApp:
+    """
+       Main GUI application for the Go game.
+    """
     def __init__(self, root: tk.Tk, size: int = 9):
         self.root = root
         self.root.title("Go - Phase 6")
@@ -29,11 +32,9 @@ class GoApp:
         self.cfg = RenderConfig()
         self.ai = RandomAI()
 
-        # Session path (autosave)
         self.session_dir = Path.cwd() / "sessions"
         self.autosave_path = self.session_dir / "last_session.json"
 
-        # State + settings
         self.size = size
         self.state = GameState.new(size=self.size)
 
@@ -41,11 +42,9 @@ class GoApp:
         self.ai_color = Color.WHITE
         self.ai_busy = False
 
-        # Undo/Redo stacks
         self.undo_stack: list[GameState] = []
         self.redo_stack: list[GameState] = []
 
-        # -------- Controls (top) --------
         self.controls = tk.Frame(root)
         self.controls.pack(fill="x", padx=8, pady=6)
 
@@ -64,7 +63,6 @@ class GoApp:
         self.ai_btn = tk.Button(self.controls, text="AI: ON", command=self.toggle_ai)
         self.ai_btn.pack(side="left", padx=(8, 0))
 
-        # Board size selection
         tk.Label(self.controls, text="Size:").pack(side="left", padx=(12, 4))
         self.size_var = tk.StringVar(value=str(self.size))
         self.size_menu = tk.OptionMenu(self.controls, self.size_var, "9", "13", "19")
@@ -73,14 +71,12 @@ class GoApp:
         self.apply_size_btn = tk.Button(self.controls, text="Apply", command=self.apply_board_size)
         self.apply_size_btn.pack(side="left", padx=(6, 0))
 
-        # Save/Load
         self.save_btn = tk.Button(self.controls, text="Save", command=self.on_save)
         self.save_btn.pack(side="left", padx=(12, 0))
 
         self.load_btn = tk.Button(self.controls, text="Load", command=self.on_load)
         self.load_btn.pack(side="left", padx=(6, 0))
 
-        # -------- Canvas --------
         self.canvas = tk.Canvas(root, highlightthickness=0)
         self.canvas.pack()
 
@@ -89,16 +85,11 @@ class GoApp:
 
         self.canvas.bind("<Button-1>", self.on_click)
 
-        # First layout & render
         self._resize_canvas_for_board()
         self.redraw()
 
-        # Try autosave load (optional): uncomment if you want auto-restore at startup.
-        # self.try_autoload()
-
         self.maybe_ai_turn()
 
-    # ---------- layout ----------
     def _resize_canvas_for_board(self):
         w = self.cfg.margin * 2 + self.cfg.cell * (self.size - 1)
         h = self.cfg.margin * 2 + self.cfg.cell * (self.size - 1)
@@ -119,7 +110,6 @@ class GoApp:
                 return Point(row, col)
         return None
 
-    # ---------- undo/redo helpers ----------
     def push_undo(self):
         self.undo_stack.append(self.state)
         self.redo_stack.clear()
@@ -134,10 +124,8 @@ class GoApp:
                 board_size=self.size,
             )
         except Exception:
-            # Autosave should never crash the app
             pass
 
-    # ---------- drawing ----------
     def redraw(self):
         self.canvas.delete("all")
         self.draw_grid()
@@ -186,8 +174,11 @@ class GoApp:
         r = self.cfg.stone_radius + 6
         self.canvas.create_oval(x - r, y - r, x + r, y + r, outline="red", width=2)
 
-    # ---------- status / controls ----------
     def update_status(self):
+        """
+            Update the status bar.
+            Displays turn information or final score when the game ends.
+        """
         ai_txt = f" | AI: {'ON' if self.ai_enabled else 'OFF'} ({self.ai_color.value})"
 
         if self.state.is_over:
@@ -217,7 +208,6 @@ class GoApp:
             )
 
     def update_controls(self):
-        # Disable during AI thinking
         busy = self.ai_busy
 
         self.pass_btn.config(state=("disabled" if self.state.is_over or busy else "normal"))
@@ -230,7 +220,6 @@ class GoApp:
         self.save_btn.config(state=("disabled" if busy else "normal"))
         self.load_btn.config(state=("disabled" if busy else "normal"))
 
-    # ---------- settings ----------
     def toggle_ai(self):
         self.ai_enabled = not self.ai_enabled
         self.ai_btn.config(text=f"AI: {'ON' if self.ai_enabled else 'OFF'}")
@@ -252,7 +241,6 @@ class GoApp:
         if new_size == self.size:
             return
 
-        # New game with selected size
         self.size = new_size
         self.state = GameState.new(size=self.size)
         self.undo_stack.clear()
@@ -263,7 +251,6 @@ class GoApp:
         self.maybe_ai_turn()
         self.autosave()
 
-    # ---------- main actions ----------
     def on_new_game(self):
         if self.ai_busy:
             return
@@ -277,6 +264,7 @@ class GoApp:
         self.autosave()
 
     def on_pass(self):
+        """Handle a pass action by the current player."""
         if self.state.is_over or self.ai_busy:
             return
         if self.ai_enabled and self.state.next_player is self.ai_color:
@@ -289,6 +277,7 @@ class GoApp:
         self.maybe_ai_turn()
 
     def on_undo(self):
+        """Undo the last move."""
         if self.ai_busy or not self.undo_stack:
             return
         self.redo_stack.append(self.state)
@@ -297,6 +286,7 @@ class GoApp:
         self.autosave()
 
     def on_redo(self):
+        """Redo the previously undone move."""
         if self.ai_busy or not self.redo_stack:
             return
         self.undo_stack.append(self.state)
@@ -305,8 +295,8 @@ class GoApp:
         self.autosave()
         self.maybe_ai_turn()
 
-    # ---------- persistence ----------
     def on_save(self):
+        """Save the current game session to disk."""
         if self.ai_busy:
             return
         path = filedialog.asksaveasfilename(
@@ -321,6 +311,7 @@ class GoApp:
         self.root.after(900, self.update_status)
 
     def on_load(self):
+        """Load a previously saved game session."""
         if self.ai_busy:
             return
         path = filedialog.askopenfilename(
@@ -346,7 +337,6 @@ class GoApp:
         self.autosave()
         self.maybe_ai_turn()
 
-    # ---------- AI ----------
     def maybe_ai_turn(self):
         if self.state.is_over:
             return
@@ -367,7 +357,6 @@ class GoApp:
             if self.state.is_over or not self.ai_enabled or self.state.next_player is not self.ai_color:
                 return
 
-            # AI action is a state transition => should be undoable
             self.push_undo()
 
             move = self.ai.pick_move(self.state)
@@ -382,8 +371,11 @@ class GoApp:
             self.autosave()
             self.maybe_ai_turn()
 
-    # ---------- events ----------
     def on_click(self, event):
+        """ Handle mouse clicks on the board.
+            Converts pixel coordinates to a board point and attempts
+            to play a move.
+        """
         if self.state.is_over or self.ai_busy:
             return
         if self.ai_enabled and self.state.next_player is self.ai_color:
@@ -397,7 +389,6 @@ class GoApp:
             self.push_undo()
             self.state = self.state.play(p)
         except GoError as e:
-            # remove the undo snapshot if move failed
             if self.undo_stack and self.undo_stack[-1] == self.state:
                 self.undo_stack.pop()
             self.status.config(text=f"Illegal move: {e}")

@@ -9,6 +9,7 @@ from .types import Color, Point, iter_neighbors
 
 @dataclass(frozen=True, slots=True)
 class TerritoryResult:
+    """Represents territory ownership after game end."""
     territory_black: int
     territory_white: int
     neutral: int
@@ -16,6 +17,7 @@ class TerritoryResult:
 
 @dataclass(frozen=True, slots=True)
 class ScoreBreakdown:
+    """Represents a full scoring breakdown for both players."""
     captures_black: int
     captures_white: int
     territory_black: int
@@ -23,7 +25,6 @@ class ScoreBreakdown:
 
     @property
     def score_black(self) -> int:
-        # Simple Japanese-style: territory + captures
         return self.territory_black + self.captures_black
 
     @property
@@ -71,7 +72,6 @@ def evaluate_territory(board: Board) -> TerritoryResult:
             if board.get(p) is not None:
                 continue
 
-            # BFS/DFS empty region
             stack = [p]
             region: set[Point] = set()
 
